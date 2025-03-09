@@ -59,15 +59,19 @@ class Fish:
     def move(self):
         self.tick_count += 1
 
+        #exponential function to mimic the affects of gravity
         d = self.vel*self.tick_count + 1.5*self.tick_count**2
 
+        #limits the speed the fish can fall at and increases the speed of jumping
         if d >= 16:
             d = 16
         if d < 0:
             d -= 2
         
+        #adds the displacement to the y value of the fish
         self.y = self.y + d
 
+        #adjusts the rotation of the fish depending on if the fish is moving up or down
         if d < 0 or self.y < self.height + 50:
             if self.tilt < self.MAX_ROTATION:
                 self.tilt = self.MAX_ROTATION
@@ -181,16 +185,19 @@ def draw_window(win, fishes, pipes, base, score):
     pygame.display.update()
 
 def main(genomes, config):
+    #each index stores a neural net, genome and fish corresponding to each other
     nets = []
     ge = []
     fishes = []
 
+    #creates a neural net and fish for each genome passed in from NEAT
     for _, g in genomes:
         net = neat.nn.FeedForwardNetwork.create(g, config)
         nets.append(net)
         fishes.append(Fish(230,350))
         g.fitness = 0
         ge.append(g)
+
 
     base = Base(650)
     pipes = [Pipe(700)]
@@ -199,6 +206,8 @@ def main(genomes, config):
     score = 0
 
     run = True
+
+    #runs until all fish have bbeen eliminated or quit event
     while run:
         clock.tick(30)
         for event in pygame.event.get():
@@ -209,6 +218,7 @@ def main(genomes, config):
 
         pipe_ind = 0
         if len(fishes) > 0:
+            #this checks if the fish has already passed the first pipe then the second pipe should be considered
             if len(pipes) > 1 and fishes[0].x > pipes[0].x + pipes[0].PIPE_TOP.get_width():
                 pipe_ind = 1
         else:
@@ -217,10 +227,13 @@ def main(genomes, config):
         
         for x, fish in enumerate(fishes):
             fish.move()
+            #fitness is increased slightly whilst fish stays alive
             ge[x].fitness += 0.1
 
+            #the positions of the next pipes are passed to the neural net and the output will be a number from 0-1
             output = nets[x].activate((fish.y, abs(fish.y-pipes[pipe_ind].height), abs(fish.y-pipes[pipe_ind].bottom)))
 
+            #if the output is greater than 0.5 then then nn thinks the fish should jump
             if output[0] > 0.5:
                 fish.jump()
 
@@ -229,9 +242,11 @@ def main(genomes, config):
         rem = []
         for pipe in pipes:
             for x, fish in enumerate(fishes):
+                #checks if the fish collides with an obstacle
                 if pipe.collide(fish):
                     #lowers the fitness when a fish hits an obstacle to train the model to avoid obstacles
                     ge[x].fitness -= 1
+                    #removes the fish,nn and genome if collision
                     fishes.pop(x)
                     nets.pop(x)
                     ge.pop(x)
@@ -248,6 +263,7 @@ def main(genomes, config):
         if add_pipe:
             score += 1
             for g in ge:
+                #big increase in fitness for all genomes that have passed the obstacles
                 g.fitness += 5
             pipes.append(Pipe(700))
         
@@ -255,6 +271,7 @@ def main(genomes, config):
             pipes.remove(r)
         
         for x, fish in enumerate(fishes):
+            #remove fishes if they go off the top of the screen or hit the ground
             if fish.y + fish.img.get_height() >= 650 or fish.y < 0:
                 fishes.pop(x)
                 nets.pop(x)
@@ -268,7 +285,7 @@ def run(config_path):
     #load the configuration
     config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
     
-    #set a population
+    #new population is created based on the config file
     p = neat.Population(config)
 
     #set the output
